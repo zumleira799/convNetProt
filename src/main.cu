@@ -58,7 +58,6 @@ __global__ void ConvolutionFusedAddAct(float* A, float* B, float* C, int ftMaps,
 
     float* localW = B + (1+wSize*wSize*inputChannels)*z;
 
-    //float writeBV = *(localW+wSize*wSize*iSize*iSize);
     float writeBV = *(localW+wSize*wSize*inputChannels);
 
     //__shared__ float W[1024];
@@ -146,8 +145,6 @@ __global__ void MatVecMultFusedAddAct(float* a, float* b, float* c, float* addV,
         tileSize = Arows;
     }
 
-    //printf("AcBr = %d\nTileSize = %d\n", AcBr, tileSize);
-
     __shared__ float B[1024];
 
     float tempVal = 0;
@@ -163,8 +160,6 @@ __global__ void MatVecMultFusedAddAct(float* a, float* b, float* c, float* addV,
 
         for(int k = 0; k < tileSize && k+i < AcBr; k++){
             tempVal += a[ctx + Arows*(k+i)]*B[k];
-            //printf("b[%d]=%f; B[%d]=%f\n", tx+i, b[tx+i], tx, B[tx]);
-            //printf("Iter: %d; locIter: %d\n", k+i, k);
         }
         __syncthreads();
     }
@@ -173,7 +168,6 @@ __global__ void MatVecMultFusedAddAct(float* a, float* b, float* c, float* addV,
     if(tempVal < 0){
         tempVal *= ReLUalpha;
     }
-    //printf("%f\n", tempVal);
     c[ctx] = tempVal;
 }
 
@@ -274,7 +268,6 @@ __global__ void cErrorSetup(float* lastOutput, int correctPos, float* writeBack,
     if(i == correctPos){
         writeBack[i] -= 1;
     }
-    //printf("Desired number=%d; writeBack[%d]=%f\n", correctPos, i, writeBack[i]);
 }
 
 __global__ void fflGradientComputation(float* NN, float* prevOutput, float* error, float* errWriteBack, float* gradWriteBack, int plSize, int flSize){
@@ -742,12 +735,8 @@ float* testData, int testDataSize){
             VecAddMult<<<((neuralSize-1)/32)+1, 32>>>(gradWB, dNN, learningRate, neuralSize);
             cudaDeviceSynchronize();
             if(cIt >= maxIter){
-                //cudaMemcpy(NN, dNN, sizeof(float)*neuralSize, cudaMemcpyDeviceToHost);
-                //writeF(NN, neuralSize, sizeof(float), NNpath);
                 cudaMemset(meanH, 0, neuralSize*sizeof(float));
                 cudaMemset(varH, 0, neuralSize*sizeof(float));
-                //initiateToC<<<neuralSize, 1>>>(meanH, 0, neuralSize);
-                //initiateToC<<<neuralSize, 1>>>(varH, 0, neuralSize);
                 cIt = 0;
             }
         }
@@ -802,8 +791,6 @@ float* randomWiehgtHeGeneration(int* layerVals, int totalLayers, int* iCL, int c
     for(int i = 0; i < clSize; i++){
         ftMaps = iCL[3*i + 2];
         normal_distribution<> dis1(0, sqrt(2.0/(iCL[3*i+2]*(cInput+(cInput-iCL[3*i]+1)))));
-        //normal_distribution<> dis1(0, sqrt(2.0/(iCL[2*i])));
-        //uniform_real_distribution<> dis1(1, 1);
         cInput = (cInput-iCL[3*i]+1)/(iCL[3*i + 1]);
         for(int k = 0; k < ftMaps; k++){
             for(int t0 = 0; t0 < iCL[3*i]*iCL[3*i]*inpChan; t0++){
@@ -842,86 +829,15 @@ void TrainDataInitialization(float* TrainData, int size, int tiOffset, int initi
         }
     }
     return;
-    /*
-    random_device rd1;
-    mt19937 gen1(rd1());
-
-    int* positions = (int*)malloc(size*sizeof(int));
-    int* finalPositions = positions;
-    for(int i = 0; i < size; i++){
-        positions[i] = i;
-    }
-    for(int i = 0; i < size; i++){
-        uniform_real_distribution<> dis1(0, ((size-i)-0.00000000001));
-        int posPicked = (int)dis1(gen1) + i;
-        int tempH = positions[i];
-        positions[i] = positions[posPicked];
-        positions[posPicked] = tempH;
-    }
-    float* FinalTrainData = (float*)malloc(tiOffset*size*sizeof(float));
-    for(int i = 0; i < size; i++){
-        memcpy((FinalTrainData+(tiOffset*i)),(TrainData+(tiOffset*finalPositions[i])), tiOffset*sizeof(float));
-    }
-    memcpy(TrainData, FinalTrainData, tiOffset*size*sizeof(float));
-    free(FinalTrainData);
-    free(finalPositions);
-    */
 }
 
 
 int main(int argc, char** argv){
-    /*
-    float weightTest[] = {
-        1,
-        0,
-        0.5, 0.6, 0.7,
-        0.8, 0.9, 0.10,
-        0.11, 0.12, 0.13,
-        0.14, 0.15, 0.16,
-        0, 0, 0,
-        0.17, 0.18, 0.19,
-        0.20, 0.21, 0.22, 
-        0.23, 0.24, 0.25,
-        0, 0, 0
-    };
-    float inputTest[] = {
-        0, 0.1, 0.2, 0.3, 0.4
-    };
-    int cL2[] = {1, 2, 1};
-    int dL2[] = {4, 3, 3};
-
-    float* dNNTest;
-    float* tSecBuf;
-    float* tDeltaBuf;
-    float* gradWbTest;
-    float* tSecGradBuf;
-    float* tMainGradBuf;
-    int* tMapsBuf;
-
-    cudaMalloc(&dNNTest, 29*sizeof(float));
-    cudaMalloc(&tSecBuf, 14*sizeof(float));
-    cudaMalloc(&tDeltaBuf, 116*sizeof(float));
-    cudaMalloc(&gradWbTest, 29*sizeof(float));
-    cudaMalloc(&tSecGradBuf, 116*sizeof(float));
-    cudaMalloc(&tMainGradBuf, 29*sizeof(float));
-    cudaMalloc(&tMapsBuf, 8*sizeof(int));
-
-    cudaMemcpy(dNNTest, weightTest, 29*sizeof(float), cudaMemcpyHostToDevice);
-
-    runLearning(dNNTest, inputTest, tSecBuf, tDeltaBuf, tMainGradBuf, tSecGradBuf, gradWbTest, 1, cL2, 1, dL2, 3, 1, 14, 29, tMapsBuf, 8, 116);
-
-    return 0;
-    */
-    
     int initialSize = 28;
     int fInputChannels = 1;
-    //int featureMaps = 1;
-    //matrixSize, pollingSize
     int convLayers[] = {5, 2, 20, 5, 2, 40};
-    //int convLayers[] = {1, 1};
     //should include last layer
     int denseLayers[] = {1024, 1024, 128, 10};
-    //int denseLayers[] = {16, 16, 10};
     //-------------------------------------------------------------
     /*
     int ftMaps;
