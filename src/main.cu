@@ -19,7 +19,7 @@ using namespace std;
 #define beta1 0.9
 #define beta2 0.99
 #define maxIter 35
-#define L2alpha 0.001
+#define L2alpha 0.0005
 
 extern "C" void* readF(const char* filename, int elemSize, long* nElWriteB);
 extern "C" void writeF(void* d1, int size, int elSize, const char* filepath);
@@ -920,7 +920,7 @@ int main(int argc, char** argv){
     int convLayers[] = {5, 2, 20, 5, 2, 40};
     //int convLayers[] = {1, 1};
     //should include last layer
-    int denseLayers[] = {128, 128, 10};
+    int denseLayers[] = {1024, 1024, 128, 10};
     //int denseLayers[] = {16, 16, 10};
     //-------------------------------------------------------------
     /*
