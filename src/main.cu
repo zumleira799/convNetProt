@@ -14,12 +14,12 @@ using namespace std;
 
 #define ReLUalpha 0.1
 #define FLT_MAX (1.0/0.0)
-#define learningRate -0.0005
+#define learningRate -0.00025
 #define epsilon 0.00000001
 #define beta1 0.9
 #define beta2 0.99
 #define maxIter 35
-#define L2alpha 0.0005
+#define L2alpha 0.01
 
 extern "C" void* readF(const char* filename, int elemSize, long* nElWriteB);
 extern "C" void writeF(void* d1, int size, int elSize, const char* filepath);
@@ -131,10 +131,15 @@ __global__ void MatVecMultFusedAddAct(float* a, float* b, float* c, float* addV,
     int tx = threadIdx.x;
     int bx = blockIdx.x;
     int tileSize = blockDim.x;
+
     int ctx = tileSize*bx + tx;
 
     if((AcBr-(bx*tileSize)) < tileSize){
         tileSize=(AcBr-(bx*tileSize));
+    }
+
+    if(tx >= tileSize){
+        return;
     }
 
     if(ctx >= Arows){
